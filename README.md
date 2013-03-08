@@ -22,9 +22,6 @@ Add `require` line in your `Capfile` or `config/deploy.rb` or so.
 
     require "capistrano/configuration/resources/file_resources"
 
-`file_resources` provides following additional file transfer actions. You can use them in your tasks.
-
-
 ## Contributing
 
 1. Fork it
