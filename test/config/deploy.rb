@@ -16,21 +16,32 @@ role :db,  "192.168.33.10", :primary => true
 
 $LOAD_PATH.push(File.expand_path("../../lib", File.dirname(__FILE__)))
 require "capistrano/configuration/resources/file_resources"
-require "stringio"
+require "tempfile"
 
 task(:test_all) {
   find_and_execute_task("test_default")
 }
 
-def assert_equals(x, y)
-  abort("assert_equals(#{x.dump}, #{y.dump}) failed.") unless x == y
+def assert_equals(x, y, options={})
+  begin
+    raise if x != y
+  rescue
+    logger.debug("assert_equals(#{x.dump}, #{y.dump}) failed.")
+    raise
+  end
 end
 
-def assert_raises(error)
+def assert_raises(error, options={})
   begin
     yield
   rescue error => e
-    logger.debug("assert_raises: expected exception: #{e}")
+    raised = e
+  ensure
+    if raised
+      logger.debug("assert_raises(#{error}) expected exception: #{raised}")
+    else
+      raise("assert raises(#{error}) failed.")
+    end
   end
 end
 
@@ -54,42 +65,56 @@ namespace(:test_default) {
   }
 
   task(:test_file) {
-    run_locally("rm -f tmp/foo; echo foo > tmp/foo")
-    assert_equals("foo\n", file("foo", :path => "tmp"))
+    run_locally("rm -rf tmp; mkdir tmp")
+    File.write("tmp/foo", "foo")
+    assert_equals(file("foo", :path => "tmp"), "foo")
   }
 
   task(:test_missing_file) {
-    run_locally("rm -f tmp/foo")
+    run_locally("rm -rf tmp; mkdir tmp")
     assert_raises(SystemExit) do
       file("foo", :path => "tmp")
     end
   }
 
   task(:test_file_with_suffix) {
-    run_locally("rm -f tmp/foo tmp/foo.erb; echo foo > tmp/foo; echo foo.erb > tmp/foo.erb")
-    assert_equals("foo\n", file("foo", :path => "tmp"))
+    run_locally("rm -rf tmp; mkdir tmp")
+    File.write("tmp/foo", "foo")
+    File.write("tmp/foo.erb", "foo.erb")
+    assert_equals(file("foo", :path => "tmp"), "foo")
+
   }
 
   task(:test_template) {
-    run_locally("rm -f tmp/bar; echo bar > tmp/bar")
-    assert_equals("bar\n", template("bar", :path => "tmp"))
+    run_locally("rm -rf tmp; mkdir tmp")
+    File.write("tmp/bar", "bar")
+    assert_equals(template("bar", :path => "tmp"), "bar")
   }
 
   task(:test_missing_template) {
-    run_locally("rm -f tmp/bar")
+    run_locally("rm -rf tmp; mkdir tmp")
     assert_raises(SystemExit) do
       template("bar", :path => "tmp")
     end
   }
 
   task(:test_template_with_suffix) {
-    run_locally("rm -f tmp/bar tmp/bar.erb; echo bar > tmp/bar; echo bar.erb > tmp/bar.erb")
-    assert_equals("bar.erb\n", template("bar", :path => "tmp"))
+    run_locally("rm -rf tmp; mkdir tmp")
+    File.write("tmp/bar", "bar")
+    File.write("tmp/bar.erb", "bar.erb")
+    assert_equals(template("bar", :path => "tmp"), "bar.erb")
+  }
+
+  task(:test_template_with_suffix_rhtml) {
+    run_locally("rm -rf tmp; mkdir tmp")
+    File.write("tmp/bar.rhtml", "bar.rhtml")
+    assert_equals(template("bar.html", :path => "tmp"), "bar.rhtml")
   }
 
   task(:test_template_rendering) {
+    run_locally("rm -rf tmp; mkdir tmp")
     File.write("tmp/baz.erb", %q{<%= "baz" %>})
-    assert_equals("baz", template("baz", :path => "tmp"))
+    assert_equals(template("baz", :path => "tmp"), "baz")
   }
 }
 

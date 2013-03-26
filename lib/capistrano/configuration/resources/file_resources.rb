@@ -1,26 +1,37 @@
 require "capistrano/configuration/resources/file_resources/version"
 require "capistrano/configuration"
 require "erb"
+require "mime/types"
 
 module Capistrano
   class Configuration
     module Resources
       module FileResources
         def file(name, options={})
-          path = options.fetch(:path, ".")
+          options = options.dup
+          path = ( options.delete(:path) || "." )
           begin
-            File.read(File.join(path, name))
+            File.read(File.join(path, name), options)
           rescue SystemCallError => error
             abort("Could not render file resource - #{error}")
           end
         end
 
         def template(name, options={})
-          path = options.fetch(:path, ".")
-          name = "#{name}.erb" if File.exist?(File.join(path, "#{name}.erb"))
-          data = file(name, options)
+          path = options.fetch(:path, "." )
+          if File.exist?(File.join(path, "#{name}.erb"))
+            name = "#{name}.erb"
+          else
+            types = MIME::Types.type_for(name)
+            if types.include?("text/html")
+              name_without_ext = File.basename(name, File.extname(name))
+              if File.exist?(File.join(path, "#{name_without_ext}.rhtml"))
+                name = "#{name_without_ext}.rhtml"
+              end
+            end
+          end
           begin
-            ERB.new(data).result(binding)
+            ERB.new(file(name, options)).result(options.fetch(:binding, binding))
           rescue StandardError => error
             abort("Could not render template resource - #{error}")
           end
