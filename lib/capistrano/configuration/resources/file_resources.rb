@@ -1,6 +1,7 @@
 require "capistrano/configuration/resources/file_resources/version"
 require "capistrano/configuration"
 require "erb"
+require "mime/types"
 
 module Capistrano
   class Configuration
@@ -17,7 +18,17 @@ module Capistrano
 
         def template(name, options={})
           path = options.fetch(:path, ".")
-          name = "#{name}.erb" if File.exist?(File.join(path, "#{name}.erb"))
+          if File.exist?(File.join(path, "#{name}.erb"))
+            name = "#{name}.erb"
+          else
+            types = MIME::Types.type_for(name)
+            if types.include?("text/html")
+              name_without_ext = File.basename(name, File.extname(name))
+              if File.exist?(File.join(path, "#{name_without_ext}.rhtml"))
+                name = "#{name_without_ext}.rhtml"
+              end
+            end
+          end
           data = file(name, options)
           begin
             ERB.new(data).result(binding)
