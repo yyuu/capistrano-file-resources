@@ -8,16 +8,17 @@ module Capistrano
     module Resources
       module FileResources
         def file(name, options={})
-          path = options.fetch(:path, ".")
+          options = options.dup
+          path = ( options.delete(:path) || "." )
           begin
-            File.read(File.join(path, name))
+            File.read(File.join(path, name), options)
           rescue SystemCallError => error
             abort("Could not render file resource - #{error}")
           end
         end
 
         def template(name, options={})
-          path = options.fetch(:path, ".")
+          path = options.fetch(:path, "." )
           if File.exist?(File.join(path, "#{name}.erb"))
             name = "#{name}.erb"
           else
@@ -29,9 +30,8 @@ module Capistrano
               end
             end
           end
-          data = file(name, options)
           begin
-            ERB.new(data).result(binding)
+            ERB.new(file(name, options)).result(options.fetch(:binding, binding))
           rescue StandardError => error
             abort("Could not render template resource - #{error}")
           end
