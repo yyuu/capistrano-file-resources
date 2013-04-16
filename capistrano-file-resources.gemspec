@@ -15,6 +15,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = Capistrano::Configuration::Resources::FileResources::VERSION
 
-  gem.add_dependency("capistrano")
+  gem.add_dependency("capistrano", "< 3")
   gem.add_dependency("mime-types")
 end
